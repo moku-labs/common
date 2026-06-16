@@ -31,3 +31,18 @@ export { browserEnv } from "./plugins/env/providers.browser";
 // Access as `Log.LogApi`, `Env.EnvConfig`, etc.
 export * as Log from "./plugins/log/types";
 export * as Env from "./plugins/env/types";
+
+// ─── Plugin types (flat) ────────────────────────────────────────────────────────
+// Re-exported flat IN ADDITION to the namespaces above so a consuming framework's
+// INFERRED types (e.g. its `createApp`) can NAME them: a namespace-only export
+// triggers TS4023 "cannot be named" in the consumer's declaration emit.
+export type {
+  ExpectChain,
+  LogApi,
+  LogConfig,
+  LogEntry,
+  LogLevel,
+  LogSink,
+  LogState
+} from "./plugins/log/types";
+export type { EnvApi, EnvConfig, EnvProvider, EnvState, EnvVarSpec } from "./plugins/env/types";

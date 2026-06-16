@@ -1,6 +1,6 @@
 {
   "name": "@moku-labs/common",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared framework plugins for the Moku family, built on @moku-labs/core.",
   "type": "module",
   "main": "./dist/index.cjs",
