@@ -21,3 +21,15 @@ export { browserEnv } from "./plugins/env/providers.browser";
 // ─── Type namespaces ────────────────────────────────────────────────────────────
 export * as Log from "./plugins/log/types";
 export * as Env from "./plugins/env/types";
+
+// ─── Plugin types (flat; for consumer type portability — see src/index.ts) ───────
+export type {
+  ExpectChain,
+  LogApi,
+  LogConfig,
+  LogEntry,
+  LogLevel,
+  LogSink,
+  LogState
+} from "./plugins/log/types";
+export type { EnvApi, EnvConfig, EnvProvider, EnvState, EnvVarSpec } from "./plugins/env/types";
