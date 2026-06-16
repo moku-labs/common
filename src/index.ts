@@ -1,0 +1,33 @@
+/**
+ * @file `@moku-labs/common` — the shared plugin catalog for the Moku family.
+ *
+ * A plugin **catalog**, not a framework: it calls neither `createCoreConfig` nor
+ * `createCore` and ships no `createApp` of its own. It exports framework-agnostic
+ * plugin objects (built on `@moku-labs/core` via `createCorePlugin`) so sibling
+ * frameworks (`web`, `blog`, and future ones) import and register them in their own
+ * `createCoreConfig` rather than re-implementing each.
+ *
+ * The Node env providers (`dotenv`, `processEnv`, `cloudflareBindings`) import
+ * `node:fs`; `"sideEffects": false` lets a browser bundle tree-shake them away. For
+ * a guaranteed node-free client bundle, import the `@moku-labs/common/browser` entry
+ * instead — see `src/browser.ts`.
+ * @see README.md
+ */
+
+// ─── Plugins ──────────────────────────────────────────────────────────────────
+// Core plugins (`createCorePlugin`): once a framework registers them in its
+// `createCoreConfig`, their API is injected onto every plugin's context — `ctx.log`
+// (always-on trace + `expect()` DSL) and `ctx.env` (validated, frozen env).
+export { logPlugin } from "./plugins/log";
+export { envPlugin } from "./plugins/env";
+
+// ─── env providers (compose one per target) ────────────────────────────────────
+// `dotenv` / `processEnv` / `cloudflareBindings` import `node:fs` (Node only);
+// `browserEnv` is `node:*`-free and also ships on the `./browser` entry.
+export { cloudflareBindings, dotenv, processEnv } from "./plugins/env/providers";
+export { browserEnv } from "./plugins/env/providers.browser";
+
+// ─── Type namespaces ────────────────────────────────────────────────────────────
+// Access as `Log.LogApi`, `Env.EnvConfig`, etc.
+export * as Log from "./plugins/log/types";
+export * as Env from "./plugins/env/types";

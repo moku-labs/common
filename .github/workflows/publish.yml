@@ -1,0 +1,194 @@
+# .github/workflows/publish.yml
+#
+# The ONE release + publish workflow. Two entry points:
+#
+#   * workflow_dispatch (release_type) — cut a NEW release: run the checks, compute
+#     the next version from the latest tag, push ONLY a tag (never the protected
+#     main branch), create a GitHub Release with auto-generated notes, then publish
+#     to npm in the same run. The first release (no tags yet) bootstraps from 0.0.0,
+#     so cut it with release_type=minor to land v0.1.0.
+#   * release: published — for a release created in the GitHub UI: run the checks,
+#     then publish that tag.
+#
+# Security notes:
+#   * npm "trusted publishing" (OIDC, no token, provenance attached) matches the
+#     TOP-LEVEL workflow file that runs `npm publish` — THIS file, with the publish
+#     step inline (not a reusable sub-workflow) so the match is exact. The npm
+#     trusted-publisher on npmjs.com must list `publish.yml` + this repo.
+#   * A release created here uses GITHUB_TOKEN, which by design does NOT re-trigger
+#     the `release: published` event, so there is no double-publish.
+#   * No untrusted data is interpolated into any `run:` block — inputs/refs are
+#     passed through `env:` and read as shell variables.
+#   * Releases are cut from `main` only (the dispatch job is ref-gated) and push
+#     ONLY a tag — refs/heads/main is never written. The version source of truth is
+#     the latest git tag; package.json's version is informational.
+#   * Permissions are least-privilege per job; actions are pinned to commit SHAs;
+#     the OIDC publish uses the npm bundled with Node 24.
+
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Semver bump for the new release"
+        type: choice
+        required: true
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialize all dispatch-driven release cuts (shared "dispatch" group); group
+  # release-event publishes by their tag. Never cancel an in-flight publish.
+  group: publish-${{ github.event.release.tag_name || 'dispatch' }}
+  cancel-in-progress: false
+
+jobs:
+  # Reuse the exact same check suite that gates every PR.
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  # Cut a new release — only for the manual dispatch path, and only from main.
+  # workflow_dispatch can be aimed at ANY ref (UI / `gh workflow run --ref ...`),
+  # so the ref guard stops a release being cut + published from a stale branch/tag.
+  release:
+    needs: checks
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create + push the TAG (never the main branch) and the release
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0 # need all tags — the next version is derived from them
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+
+      - name: Compute next version from the latest tag
+        id: bump
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
+        run: |
+          # The version source of truth is the latest tag: seed package.json from
+          # it, then bump. With no tags yet (first release) the bootstrap falls
+          # back to 0.0.0 — cut the first release with release_type=minor → 0.1.0.
+          LATEST="$(git tag --list 'v*' --sort=-v:refname | head -n1)"
+          if [ -n "$LATEST" ]; then
+            BASE="${LATEST#v}"
+          else
+            BASE="0.0.0"
+          fi
+          npm version "$BASE" --no-git-tag-version --allow-same-version >/dev/null
+          TAG="$(npm version "$RELEASE_TYPE" --no-git-tag-version)"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Releasing ${TAG} (base ${BASE} from ${LATEST:-bootstrap})"
+
+      - name: Tag the release (tag-only — never writes the main branch)
+        env:
+          TAG: ${{ steps.bump.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Commit the bump LOCALLY so the tag's tree carries the right version,
+          # then push ONLY the tag. refs/heads/main is never written.
+          git commit -am "chore(release): ${TAG}"
+          git tag -a "${TAG}" -m "${TAG}"
+          git push origin "refs/tags/${TAG}"
+
+      - name: Create GitHub Release (native auto-generated notes)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.bump.outputs.tag }}
+        run: |
+          PRERELEASE=""
+          case "$TAG" in
+            *-*) PRERELEASE="--prerelease" ;;
+          esac
+          # Scope the notes to commits between the previous tag and this one.
+          PREV="$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | head -n1)"
+          gh release create "$TAG" --title "$TAG" --generate-notes \
+            ${PREV:+--notes-start-tag "$PREV"} --verify-tag $PRERELEASE
+
+  # Publish to npm — runs for BOTH entry points.
+  publish:
+    needs: [checks, release]
+    # Run when checks pass AND the path is valid. Split by event so a dispatch
+    # whose release job was SKIPPED (e.g. blocked by the main-gate) can never fall
+    # through to publish with an empty ref. always() lets us evaluate after the
+    # optional release job without inheriting a cancelled/failed state.
+    if: >-
+      always() &&
+      needs.checks.result == 'success' &&
+      (
+        (github.event_name == 'workflow_dispatch' && needs.release.result == 'success') ||
+        (github.event_name == 'release' && needs.release.result == 'skipped')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC token for npm trusted publishing
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.release.outputs.tag || github.event.release.tag_name }}
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          # Targets the publish at npm. Auth is OIDC trusted publishing — no
+          # NODE_AUTH_TOKEN is set or needed.
+          registry-url: "https://registry.npmjs.org"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - run: bun install --frozen-lockfile
+
+      - name: Verify ref matches package.json version
+        env:
+          REF: ${{ needs.release.outputs.tag || github.event.release.tag_name }}
+        run: |
+          if [ -z "$REF" ]; then
+            echo "::error::no ref resolved — refusing to publish"
+            exit 1
+          fi
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "${REF#v}" != "$PKG" ]; then
+            echo "::error::ref ${REF} does not match package.json version ${PKG}"
+            exit 1
+          fi
+
+      - run: bun run build
+
+      - name: Assert bundled npm supports OIDC trusted publishing
+        # Node 24 bundles npm >= 11.5.1 (the trusted-publishing floor), so we rely
+        # on it rather than fetching an unpinned `npm@latest` into the credentialed
+        # step. Read-only and fails closed.
+        run: |
+          MIN=11.5.1
+          CUR="$(npm --version)"
+          if [ "$(printf '%s\n%s\n' "$MIN" "$CUR" | sort -V | head -n1)" != "$MIN" ]; then
+            echo "::error::npm ${CUR} < ${MIN} (OIDC trusted publishing needs >= ${MIN}); bump node-version"
+            exit 1
+          fi
+
+      - name: Publish to npm (OIDC trusted publishing)
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          # Stable versions move the `latest` dist-tag; prerelease versions go to
+          # `next` so they never clobber it.
+          case "$VERSION" in
+            *-*) NPM_TAG="next" ;;
+            *) NPM_TAG="latest" ;;
+          esac
+          echo "Publishing ${VERSION} to npm dist-tag '${NPM_TAG}'"
+          npm publish --access public --tag "$NPM_TAG"
