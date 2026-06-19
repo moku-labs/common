@@ -150,4 +150,10 @@ export type LogApi = {
   addSink(sink: LogSink): void;
   /** Clear all recorded entries while keeping registered sinks. */
   reset(): void;
+  /**
+   * Remove all registered output sinks. The in-memory trace (`entries`) is
+   * unaffected, so `trace()`/`expect()` keep working — used to replace the default
+   * console sink (e.g. a CLI plugin swapping in a branded sink from `@moku-labs/common/cli`).
+   */
+  clearSinks(): void;
 };

@@ -49,6 +49,7 @@ Reachable as `ctx.log.<method>()` (every regular plugin) and `app.log.<method>()
 | `expect` | `() => ExpectChain` | Return a fluent assertion chain bound to the **live** entries array. |
 | `addSink` | `(sink: LogSink) => void` | Register an additional `LogSink` at runtime (the file/JSON seam). |
 | `reset` | `() => void` | Clear all recorded entries while **keeping** registered sinks. |
+| `clearSinks` | `() => void` | Remove all registered sinks; the in-memory trace is **unaffected** (so `trace()`/`expect()` keep working). Lets a CLI plugin swap the default object sink for a branded one (see [`@moku-labs/common/cli`](../../cli/README.md) `brandedSink`). |
 
 Each `LogEntry` is `{ level, event, data?, ts, plugin? }`, where `ts` is `Date.now()` at append time and `plugin` is reserved for future enrichment. Entries are appended to the in-memory trace first, then written to every registered sink in registration order.
 
