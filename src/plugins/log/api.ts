@@ -192,6 +192,19 @@ export function createLogApi(ctx: LogContext): LogApi {
      */
     reset(): void {
       state.entries.length = 0;
+    },
+    /**
+     * Remove all registered output sinks; the in-memory trace (`entries`) is
+     * unaffected, so `trace()`/`expect()` keep working.
+     *
+     * @example
+     * ```ts
+     * log.clearSinks();
+     * log.addSink(brandedSink()); // from @moku-labs/common/cli
+     * ```
+     */
+    clearSinks(): void {
+      state.sinks.length = 0;
     }
   };
 }

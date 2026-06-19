@@ -17,6 +17,17 @@ export default defineConfig([
     tsconfig: "tsconfig.build.json"
   },
   {
+    // The branded CLI kit — its own pass so its node-only graph (node:readline) never
+    // merges into the `.` shared chunk. Dual esm+cjs (Node consumers); `clean: false`
+    // so it does not wipe the index/browser output.
+    entry: { cli: "src/cli/index.ts" },
+    format: ["esm", "cjs"],
+    dts: true,
+    clean: false,
+    sourcemap: false,
+    tsconfig: "tsconfig.build.json"
+  },
+  {
     // ESM-only. A CJS browser build is meaningless: browsers/bundlers consume ESM,
     // and `import.meta.env` (browserEnv) becomes `{}` under CJS. The `.` entry stays
     // dual (esm+cjs) for Node consumers.

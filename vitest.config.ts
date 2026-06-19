@@ -6,7 +6,11 @@ export default defineConfig({
       {
         test: {
           name: "unit",
-          include: ["tests/unit/**/*.test.ts", "src/plugins/**/__tests__/unit/**/*.test.ts"]
+          include: [
+            "tests/unit/**/*.test.ts",
+            "src/plugins/**/__tests__/unit/**/*.test.ts",
+            "src/cli/__tests__/unit/**/*.test.ts"
+          ]
         }
       },
       {
@@ -14,7 +18,8 @@ export default defineConfig({
           name: "integration",
           include: [
             "tests/integration/**/*.test.ts",
-            "src/plugins/**/__tests__/integration/**/*.test.ts"
+            "src/plugins/**/__tests__/integration/**/*.test.ts",
+            "src/cli/__tests__/integration/**/*.test.ts"
           ]
         }
       }
