@@ -53,6 +53,7 @@ bun add @moku-labs/common @moku-labs/core
 | [`envPlugin`](src/plugins/env/README.md) | core plugin | Multi-provider environment / secret injection, validated and frozen at `onInit`, with `PUBLIC_` cross-validation. Exposed as `ctx.env`. |
 | `dotenv` · `processEnv` · `cloudflareBindings` | env providers (Node) | Resolve env from `.env` files / `process.env` / Cloudflare bindings. Import `node:fs`. |
 | `browserEnv` | env provider (browser) | Reads `import.meta.env` + `globalThis.__ENV__`. Zero `node:*`. |
+| [`createBrandConsole` · `createBrandPrompts` · `brandedSink`](src/cli/README.md) | CLI kit (Node) | The family's branded terminal renderer — console / prompts / log-sink + ANSI primitives. Imported from `@moku-labs/common/cli`. |
 | `Log` · `Env` | type namespaces | `Log.LogApi`, `Env.EnvConfig`, … |
 
 ## Usage
@@ -88,6 +89,7 @@ import { browserEnv } from "@moku-labs/common/browser"; // browser (node-free)
 | Entry | Format | For | Includes |
 |---|---|---|---|
 | **`@moku-labs/common`** | dual ESM + CJS | Node | the full catalog, incl. the Node env providers (`dotenv` / `processEnv` / `cloudflareBindings`) |
+| **`@moku-labs/common/cli`** | dual ESM + CJS | Node CLIs | the branded CLI kit — `createBrandConsole`, `createBrandPrompts`, `brandedSink`, and the ANSI primitives |
 | **`@moku-labs/common/browser`** | ESM-only | client bundles | `logPlugin`, `envPlugin`, `browserEnv` and the `Log` / `Env` types — **with all node-only code excluded** |
 
 Importing `@moku-labs/common/browser` can **never** drag `node:*` code into a client bundle, regardless of bundler or tree-shaking — its static import graph references zero node-only modules. CI proves it:
