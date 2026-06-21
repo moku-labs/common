@@ -23,9 +23,11 @@ export { envPlugin } from "./plugins/env";
 
 // ─── env providers (compose one per target) ────────────────────────────────────
 // `dotenv` / `processEnv` / `cloudflareBindings` import `node:fs` (Node only);
-// `browserEnv` is `node:*`-free and also ships on the `./browser` entry.
+// `workerSafeProcessEnv` and `browserEnv` are `node:*`-free — the worker one stays
+// on this (server) barrel, `browserEnv` also ships on the `./browser` entry.
 export { cloudflareBindings, dotenv, processEnv } from "./plugins/env/providers";
 export { browserEnv } from "./plugins/env/providers.browser";
+export { workerSafeProcessEnv } from "./plugins/env/providers.worker";
 
 // ─── Type namespaces ────────────────────────────────────────────────────────────
 // Access as `Log.LogApi`, `Env.EnvConfig`, etc.
