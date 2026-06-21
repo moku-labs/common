@@ -98,13 +98,15 @@ core plugin that everything else may read from.
 ## Providers
 Provider factories are exported from the package, not from `envPlugin` itself. The Node-only
 providers (`dotenv`, `processEnv`, `cloudflareBindings`) import `node:fs` and are exported
-from the package root (`@moku-labs/common`); `browserEnv` is `node:*`-free and ships on both the
-root barrel and `@moku-labs/common/browser`.
+from the package root (`@moku-labs/common`); `workerSafeProcessEnv` and `browserEnv` are
+`node:*`-free — the worker one ships on the root barrel only, while `browserEnv` ships on both
+the root barrel and `@moku-labs/common/browser`.
 
 | Provider | Name | Source | Behavior |
 |---|---|---|---|
 | `dotenv(path = ".env.local")` | `dotenv:<path>` | A `.env`-style file | Zero-dependency parser, re-read from disk every `load()`. Missing file → `{}`. Handles CRLF/LF, blank lines, full-line `#` comments, first-`=` splitting, key/value trimming, and a single outer quote pair. Trailing inline comments on **unquoted** values are **not** stripped (`KEY=value # x` → `value # x`). `KEY=` yields `""`, later coerced to `undefined` during merge. |
-| `processEnv()` | `process-env` | `process.env` | Returns a shallow copy of `process.env` at `load()` time. |
+| `processEnv()` | `process-env` | `process.env` | Returns a shallow copy of `process.env` at `load()` time. Dereferences `process` unconditionally — for a Cloudflare Worker bundle use `workerSafeProcessEnv()` instead. |
+| `workerSafeProcessEnv()` | `worker-process-env` | `process.env` (guarded) | Workerd-safe, zero `node:*`. Shallow copy of `process.env` behind a `typeof process` guard, so it never throws at Worker cold start — present under Bun/Node and workerd-with-`nodejs_compat`, and `{}` under workerd without it. Re-reads fresh every `load()`. |
 | `cloudflareBindings()` | `cloudflare` | `globalThis.__CLOUDFLARE_ENV__` | Reads the global fresh every `load()` and **never caches**. The request handler owns the global's lifecycle. |
 | `browserEnv(options?)` | `browser-env` | `import.meta.env` + `globalThis[globalKey]` | Browser-safe (zero `node:*`). Merges both sources, runtime global winning; each absent source → `{}`; never throws. `options.globalKey` defaults to `"__ENV__"`. Exported from `@moku-labs/common/browser`. |
 
@@ -142,7 +144,10 @@ sanctioned input to a browser-facing `define`, so it must never leak an unvetted
 **Per-target export split.** The Node providers are deliberately not re-exported from
 `envPlugin` (they import `node:fs`, and `envPlugin` is pulled into every composition, browser
 ones included). They live on the package root where `"sideEffects": false` lets a browser
-bundle tree-shake them; `browserEnv` stays on the barrel because it is `node:*`-free.
+bundle tree-shake them; `browserEnv` and `workerSafeProcessEnv` stay on the barrel because they
+are `node:*`-free. `workerSafeProcessEnv` lives in its own `providers.worker.ts` (never the
+`node:fs`-importing `providers.ts`) so a Cloudflare Worker that imports it never statically
+references `node:*` — the same isolation rationale that keeps `browserEnv` in `providers.browser.ts`.
 
 ## Files
 | File | Responsibility |
@@ -153,6 +158,7 @@ bundle tree-shake them; `browserEnv` stays on the barrel because it is `node:*`-
 | `state.ts` | `createEnvState` — fresh empty `resolved` + `publicMap` maps. |
 | `validate.ts` | `validateSchema` (the `onInit` pipeline) + the exported `freezeMap` immutability helper. |
 | `providers.ts` | Node providers: `dotenv`, `processEnv`, `cloudflareBindings` (import `node:fs`). |
+| `providers.worker.ts` | `workerSafeProcessEnv` — workerd-safe `process.env` provider (zero `node:*`). |
 | `providers.browser.ts` | `browserEnv` — browser-safe provider (zero `node:*`). |
 | `__tests__/` | Unit + integration tests. |
 
