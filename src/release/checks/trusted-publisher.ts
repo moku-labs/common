@@ -27,6 +27,18 @@ function isUnknownCommand(output: string): boolean {
 }
 
 /**
+ * Whether npm refused the listing because nobody is logged in.
+ *
+ * @param output - The combined stdout/stderr npm produced.
+ * @returns `true` when the failure is an authentication failure, not a missing registration.
+ * @example
+ * isUnauthorized("npm error code E401");
+ */
+function isUnauthorized(output: string): boolean {
+  return /E401|ENEEDAUTH|401 Unauthorized/i.test(output);
+}
+
+/**
  * The exact registration command for this package and repository.
  *
  * @param name - The package name.
@@ -47,7 +59,7 @@ export const trustedPublisherCheck: ReleaseCheck = {
    * List the package's trusted publishers and look for this repo's `publish.yml`.
    *
    * @param ctx - The injected ports.
-   * @returns Pass when registered, warn when npm is too old, otherwise the exact command.
+   * @returns Pass when registered, warn when npm is too old, skip when logged out, otherwise the exact command.
    * @example
    * await trustedPublisherCheck.run(ctx);
    */
@@ -62,6 +74,10 @@ export const trustedPublisherCheck: ReleaseCheck = {
     const listing = await ctx.exec.capture("npm", ["trust", "list", manifest.name]);
     if (isUnknownCommand(`${listing.stdout}${listing.stderr}`)) {
       return warn("this npm has no `trust` command", "upgrade npm");
+    }
+    // Logged out, the registry refuses to list publishers: unknown is not the same as missing
+    if (isUnauthorized(`${listing.stdout}${listing.stderr}`)) {
+      return skip("cannot list trusted publishers without `npm login`");
     }
     if (listing.code !== 0 || !listing.stdout.includes(PUBLISH_WORKFLOW_FILE)) {
       return fail("no trusted publisher registered", trustCommand(manifest.name, ownerRepo));

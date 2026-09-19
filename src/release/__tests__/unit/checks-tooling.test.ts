@@ -133,6 +133,21 @@ describe("trustedPublisherCheck", () => {
     );
   });
 
+  it("skips (not fails) when npm is logged out, because the listing needs auth", async () => {
+    const result = await trustedPublisherCheck.run(
+      contextWith({
+        "npm trust list @moku-labs/common": {
+          code: 1,
+          stderr:
+            "npm error code E401\nnpm error 401 Unauthorized - GET https://registry.npmjs.org/-/package/x/trust"
+        }
+      })
+    );
+
+    expect(result.status).toBe("skip");
+    expect(result.detail).toContain("npm login");
+  });
+
   it("warns (not fails) when this npm has no `trust` command", async () => {
     const result = await trustedPublisherCheck.run(
       contextWith({
