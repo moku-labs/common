@@ -28,6 +28,17 @@ export default defineConfig([
     tsconfig: "tsconfig.build.json"
   },
   {
+    // The `moku-release` bin. ESM-only (a Node 24 executable, never imported) and no
+    // `.d.ts` — nothing type-checks against a CLI entry. Its own pass so the shebang
+    // banner and the bin-only graph never reach the library entries.
+    entry: { release: "src/release/index.ts" },
+    format: ["esm"],
+    dts: false,
+    clean: false,
+    sourcemap: false,
+    tsconfig: "tsconfig.build.json"
+  },
+  {
     // ESM-only. A CJS browser build is meaningless: browsers/bundlers consume ESM,
     // and `import.meta.env` (browserEnv) becomes `{}` under CJS. The `.` entry stays
     // dual (esm+cjs) for Node consumers.

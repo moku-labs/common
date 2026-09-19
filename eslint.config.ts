@@ -81,6 +81,7 @@ export default [
             pkg: true,
             src: true,
             dist: true,
+            Dist: true,
             config: true,
             cfg: true,
             e2e: true,
