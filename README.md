@@ -23,6 +23,7 @@ into any framework's `createCoreConfig`. No framework of its own, no lock-in.
 [Catalog](#catalog) ·
 [Usage](#usage) ·
 [Entry points](#entry-points) ·
+[moku-release](#moku-release) ·
 [Scripts](#scripts)
 
 </div>
@@ -54,6 +55,7 @@ bun add @moku-labs/common @moku-labs/core
 | `dotenv` · `processEnv` · `cloudflareBindings` | env providers (Node) | Resolve env from `.env` files / `process.env` / Cloudflare bindings. Import `node:fs`. |
 | `browserEnv` | env provider (browser) | Reads `import.meta.env` + `globalThis.__ENV__`. Zero `node:*`. |
 | [`createBrandConsole` · `createBrandPrompts` · `brandedSink`](src/cli/README.md) | CLI kit (Node) | The family's branded terminal renderer — console / prompts / log-sink + ANSI primitives. Imported from `@moku-labs/common/cli`. |
+| [`moku-release`](src/release/README.md) | bin (Node) | The release CLI — CI workflows, the package.json contract, npm Trusted Publishing, and the release trigger. |
 | `Log` · `Env` | type namespaces | `Log.LogApi`, `Env.EnvConfig`, … |
 
 ## Usage
@@ -98,6 +100,33 @@ Importing `@moku-labs/common/browser` can **never** drag `node:*` code into a cl
 bun run check:bundle   # asserts: zero static node imports + under the gzip budget
 ```
 
+## moku-release
+
+This package also ships a bin: **`moku-release`** — the one-time setup, the read-only diagnosis, and the release trigger for every moku-family npm package. It removes the recurring cost of wiring CI, versioning and npm publishing for a new package. Full details in [`src/release/README.md`](src/release/README.md).
+
+```sh
+bun run release:setup      # one-time wizard: workflows, package.json contract, first publish, trusted publisher, ruleset
+bun run release:doctor     # read-only diagnosis — one line per check, a `fix:` line for every non-pass
+bun run release patch      # dispatch publish.yml, watch the run, verify the version is really on npm
+```
+
+Both `release:setup` and `release` accept `--dry-run`; `release:doctor` accepts `--json`.
+
+> [!IMPORTANT]
+> **Two steps are yours alone.** `moku-release` never logs anyone in and never handles a token or an OTP. When a session is missing it prints the exact command — `gh auth login` or `npm login` — and stops.
+
+The workflows it writes are **byte-identical copies** of [`moku-labs/ci`](https://github.com/moku-labs/ci)'s `examples/package/{ci,publish}.yml`, pinned to `@v1`; publishing is tokenless OIDC Trusted Publishing, so no `NPM_TOKEN` exists anywhere. `.github/workflows/publish.yml` must keep that exact filename — npm validates the calling workflow's name.
+
+It enforces (and `setup` fills in) this `package.json` contract:
+
+| Field | Requirement |
+|---|---|
+| `scripts` | `lint`, `typecheck`, `test`, `build`, `validate`, `release:setup`, `release:doctor`, `release` |
+| `publishConfig.access` | `"public"` |
+| `repository.url` | matches `git remote get-url origin` |
+| `files` | present and non-empty |
+| `engines.node` | `>= 24` — the npm Trusted Publishing floor |
+
 ## Scripts
 
 ```sh
@@ -106,11 +135,15 @@ bun run test               # all tests (vitest)
 bun run test:unit          # unit tests only
 bun run test:integration   # integration tests only
 bun run test:coverage      # tests with coverage (90% threshold)
+bun run typecheck          # tsc --noEmit
 bun run lint               # biome check + eslint
 bun run lint:fix           # auto-fix lint issues
 bun run format             # format with biome
 bun run validate           # publint + attw — verify the package export map
 bun run check:bundle       # assert the browser bundle is node-free + under the gzip budget
+bun run release:setup      # moku-release setup   — one-time release wiring (idempotent)
+bun run release:doctor     # moku-release doctor  — read-only release diagnosis
+bun run release <bump>     # moku-release <patch|minor|major|prerelease>
 ```
 
 ## Requirements

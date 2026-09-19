@@ -20,6 +20,9 @@ Use `bun` exclusively — never npm, yarn, or pnpm.
 - `bun run test:unit` — Unit tests only
 - `bun run test:integration` — Integration tests only
 - `bun run test:coverage` — Tests with coverage
+- `bun run typecheck` — `tsc --noEmit`
+- `bun run validate` — publint + attw (export map)
+- `bun run release:setup` / `release:doctor` / `release <bump>` — the `moku-release` bin (see `src/release/README.md`)
 
 ## Code Style
 
