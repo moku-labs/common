@@ -5,7 +5,7 @@
     "": {
       "name": "common",
       "dependencies": {
-        "@moku-labs/core": "1.6.0",
+        "@moku-labs/core": "1.7.0",
       },
       "devDependencies": {
         "@arethetypeswrong/cli": "0.18.3",
@@ -197,7 +197,7 @@
 
     "@moku-labs/ci": ["@moku-labs/ci@1.2.6", "", { "bin": { "moku-release": "dist/release.mjs" } }, "sha512-KIUvh3Sk+CvGM5v/r6pYNlJmbmpv5KxvNDzcMUjsfdUCcb8liSv+jAQ3JbZfBtQUKPMqXhAuOqf0BHe6aMHmGQ=="],
 
-    "@moku-labs/core": ["@moku-labs/core@1.6.0", "", {}, "sha512-Y6ws8WDa0lnxD810XSts1eoiZ5Hvc2ZjtthP5e1PcqhOxmomZlnk4JCcjcWYINaymZxpI42HZg05KW14rRdBWw=="],
+    "@moku-labs/core": ["@moku-labs/core@1.7.0", "", {}, "sha512-h6n+tBvUT8zrgqH0Rh/toOXyiGQKVti7efVQQwDynHcwN+2aapMchFfesIFCNByc0e6ap7QrB3FtbwmtcX3qDA=="],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.5", "", { "dependencies": { "@tybys/wasm-util": "^0.10.2" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-AWPoBRJ9tsnVhor4sjO7rkni+7p+2IAEFj6cx06UgP10jkQHqay/36uRV/bFkgrh18D9vb4cr8Q0Pthskgzy+Q=="],
 

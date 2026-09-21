@@ -64,7 +64,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@moku-labs/core": "1.6.0"
+    "@moku-labs/core": "1.7.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.3",
