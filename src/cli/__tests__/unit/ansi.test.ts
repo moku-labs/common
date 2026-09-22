@@ -17,6 +17,10 @@ import {
 const ESC = String.fromCodePoint(0x1b);
 
 describe("supportsColor", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("is false for a non-TTY stream", () => {
     expect(supportsColor({ isTTY: false })).toBe(false);
   });
@@ -26,6 +30,8 @@ describe("supportsColor", () => {
   });
 
   it("is true on a TTY with NO_COLOR unset", () => {
+    // The default reads process.env.NO_COLOR, so unset it: a NO_COLOR shell must not flip it.
+    vi.stubEnv("NO_COLOR", undefined);
     expect(supportsColor({ isTTY: true })).toBe(true);
   });
 });
