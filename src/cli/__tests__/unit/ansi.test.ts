@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ANSI,
   BRAND_PINK,
@@ -31,10 +31,16 @@ describe("supportsColor", () => {
 });
 
 describe("supportsTruecolor", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("is true for truecolor / 24bit COLORTERM and false otherwise", () => {
     expect(supportsTruecolor("truecolor")).toBe(true);
     expect(supportsTruecolor("24bit")).toBe(true);
     expect(supportsTruecolor("256color")).toBe(false);
+    // The default reads process.env.COLORTERM, so pin it: a truecolor shell must not flip it.
+    vi.stubEnv("COLORTERM", "");
     expect(supportsTruecolor()).toBe(false);
   });
 });
