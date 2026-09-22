@@ -1,4 +1,4 @@
-import { PassThrough } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { createBrandPrompts } from "../../prompts";
 
@@ -72,5 +72,27 @@ describe("createBrandPrompts.select", () => {
     expect(index).toBe(0);
     expect(blocks.join("\n")).toContain("◆");
     expect(blocks.join("\n")).toContain("Pick");
+  });
+});
+
+describe("createBrandPrompts with a finite piped input", () => {
+  it("answers each prompt from its own piped line", async () => {
+    const output = new PassThrough();
+    output.resume();
+    const input = Readable.from(["y\n", "y\n", "2\n"]);
+    const prompts = createBrandPrompts({ color: false, input, output, write: () => {} });
+    expect(await prompts.confirm("one?")).toBe(true);
+    expect(await prompts.confirm("two?")).toBe(true);
+    expect(await prompts.select("three?", ["a", "b"])).toBe(1);
+  });
+
+  it("resolves the default when the input ends before the prompts do", async () => {
+    const output = new PassThrough();
+    output.resume();
+    const input = Readable.from(["y\n"]);
+    const prompts = createBrandPrompts({ color: false, input, output, write: () => {} });
+    expect(await prompts.confirm("one?")).toBe(true);
+    expect(await prompts.confirm("two?")).toBe(false);
+    expect(await prompts.select("three?", ["a", "b"])).toBe(0);
   });
 });
