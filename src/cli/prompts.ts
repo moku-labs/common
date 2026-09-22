@@ -5,7 +5,7 @@
  * input/output streams and the choices-block sink are injectable so tests drive prompts
  * without a real TTY. Off a color TTY (CI/pipes) every prompt degrades to a plain form.
  */
-import { createInterface } from "node:readline";
+import { createInterface, type Interface } from "node:readline";
 import { makePalette, type Palette, supportsColor, supportsTruecolor, visibleWidth } from "./ansi";
 
 /** Default prompt rail width — matches the brand console so hints align with other rows. */
@@ -143,6 +143,64 @@ export function createBrandPrompts(options: BrandPromptsOptions = {}): BrandProm
     return `    ${hint} ${caret} `;
   };
 
+  // One readline per prompts object: a fresh interface per question would read the whole
+  // piped buffer and drop the unread lines on close(), so later questions never resolve.
+  let readline: Interface | undefined;
+  let closed = false;
+  const lines: string[] = [];
+  const waiters: Array<(answer: string) => void> = [];
+
+  /**
+   * Show `prompt` and resolve the next input line. Lines that arrive before a question are
+   * queued; once the input has ended, the question resolves `""` (the prompt's default).
+   *
+   * @param prompt - The readline prompt string.
+   * @returns Resolves the raw answer line.
+   * @example
+   * await ask("Deploy? [y/N] ");
+   */
+  const ask = (prompt: string): Promise<string> => {
+    // The input is gone: show the question anyway and take the default.
+    if (closed && lines.length === 0) {
+      output.write(prompt);
+      return Promise.resolve("");
+    }
+
+    readline ??= openReadline();
+    readline.setPrompt(prompt);
+    readline.prompt();
+
+    // An answer is already buffered: resolve now.
+    const queued = lines.shift();
+    if (queued !== undefined) return Promise.resolve(queued);
+
+    readline.resume();
+    return new Promise<string>(resolve => waiters.push(resolve));
+  };
+
+  /**
+   * Create the shared interface: route each line to the oldest waiting question or the
+   * queue, pause while idle so the process can exit, and settle waiters on close.
+   *
+   * @returns The shared readline interface.
+   * @example
+   * readline ??= openReadline();
+   */
+  const openReadline = (): Interface => {
+    const created = createInterface({ input, output });
+    created.on("line", line => {
+      const waiter = waiters.shift();
+      if (waiter) waiter(line);
+      else lines.push(line);
+      if (waiters.length === 0) created.pause();
+    });
+    created.on("close", () => {
+      closed = true;
+      for (const waiter of waiters.splice(0)) waiter("");
+    });
+    return created;
+  };
+
   return {
     /**
      * Ask a yes/no question; resolves `true` only on an explicit `y`/`yes`.
@@ -153,13 +211,7 @@ export function createBrandPrompts(options: BrandPromptsOptions = {}): BrandProm
      * await prompts.confirm("Deploy?");
      */
     confirm(question) {
-      return new Promise<boolean>(resolve => {
-        const readline = createInterface({ input, output });
-        readline.question(confirmPrompt(question), answer => {
-          readline.close();
-          resolve(YES_PATTERN.test(answer.trim()));
-        });
-      });
+      return ask(confirmPrompt(question)).then(answer => YES_PATTERN.test(answer.trim()));
     },
     /**
      * Present `choices` numbered from 1 and resolve the chosen zero-based index.
@@ -171,15 +223,11 @@ export function createBrandPrompts(options: BrandPromptsOptions = {}): BrandProm
      * await prompts.select("Pick", ["a", "b"]);
      */
     select(question, choices) {
-      return new Promise<number>(resolve => {
-        const readline = createInterface({ input, output });
-        write(choicesBlock(question, choices));
-        readline.question(selectPrompt(question, choices.length), answer => {
-          readline.close();
-          const picked = Number.parseInt(answer.trim(), 10);
-          const valid = Number.isInteger(picked) && picked >= 1 && picked <= choices.length;
-          resolve(valid ? picked - 1 : 0);
-        });
+      write(choicesBlock(question, choices));
+      return ask(selectPrompt(question, choices.length)).then(answer => {
+        const picked = Number.parseInt(answer.trim(), 10);
+        const valid = Number.isInteger(picked) && picked >= 1 && picked <= choices.length;
+        return valid ? picked - 1 : 0;
       });
     }
   };
