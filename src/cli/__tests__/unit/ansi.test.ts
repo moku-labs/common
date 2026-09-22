@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ANSI,
   BRAND_PINK,
@@ -17,6 +17,10 @@ import {
 const ESC = String.fromCodePoint(0x1b);
 
 describe("supportsColor", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("is false for a non-TTY stream", () => {
     expect(supportsColor({ isTTY: false })).toBe(false);
   });
@@ -26,15 +30,23 @@ describe("supportsColor", () => {
   });
 
   it("is true on a TTY with NO_COLOR unset", () => {
+    // The default reads process.env.NO_COLOR, so unset it: a NO_COLOR shell must not flip it.
+    vi.stubEnv("NO_COLOR", undefined);
     expect(supportsColor({ isTTY: true })).toBe(true);
   });
 });
 
 describe("supportsTruecolor", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("is true for truecolor / 24bit COLORTERM and false otherwise", () => {
     expect(supportsTruecolor("truecolor")).toBe(true);
     expect(supportsTruecolor("24bit")).toBe(true);
     expect(supportsTruecolor("256color")).toBe(false);
+    // The default reads process.env.COLORTERM, so pin it: a truecolor shell must not flip it.
+    vi.stubEnv("COLORTERM", "");
     expect(supportsTruecolor()).toBe(false);
   });
 });
