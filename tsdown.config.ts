@@ -10,6 +10,10 @@ import { defineConfig } from "tsdown";
 export default defineConfig([
   {
     entry: { index: "src/index.ts" },
+    // One output file per source module. With `"sideEffects": false` a bundler then drops the
+    // node-only env providers (`node:fs`) from a graph that does not use them, for example a
+    // Cloudflare Worker that imports only `logPlugin`, `envPlugin` and `workerSafeProcessEnv`.
+    unbundle: true,
     format: ["esm", "cjs"],
     dts: true,
     clean: true,
