@@ -2,7 +2,7 @@
 
 > **Core** — structured logging plus an always-on in-memory trace with an `expect()` DSL for testable, LLM-verifiable workflows.
 
-`log` is a Moku **core plugin** (`createCorePlugin`): its API is injected flat onto every regular plugin's context as `ctx.log`, and surfaced on the app as `app.log`. Every call records a `LogEntry` in an append-only in-memory **trace** (always on) and fans it out to each registered **sink** in registration order. The `expect()` chain turns that trace into assertions — `toHaveEvent` / `toHaveEventInOrder` / `toNotHaveEvent` — so a build or runtime workflow can be verified by what it logged.
+`log` is a Moku **core plugin** (`createCorePlugin`): its API is injected flat onto every regular plugin's context as `ctx.log`, and surfaced on the app as `app.log`. Every call records a `LogEntry` in an in-memory **trace** (always on, the newest 1000 to 2000 entries) and fans it out to each registered **sink** in registration order. The `expect()` chain turns that trace into assertions — `toHaveEvent` / `toHaveEventInOrder` / `toNotHaveEvent` — so a build or runtime workflow can be verified by what it logged.
 
 Being a core plugin, its context is `{ config, state }` only — **no `depends`, no `events`, no `hooks`**. It runs its `onInit` before every regular plugin, so logging is available throughout the lifecycle, and it owns no external resource (only in-memory arrays + synchronous sinks), so it deliberately has **no `onStart` / `onStop`**. The one load-bearing design decision: the `LogSink` seam — console/file/JSON outputs are pluggable behind a single `write(entry)` interface, so new outputs are added without touching the log API.
 
@@ -45,7 +45,7 @@ Reachable as `ctx.log.<method>()` (every regular plugin) and `app.log.<method>()
 | `debug` | `(event: string, data?: unknown) => void` | Append a `debug` entry. |
 | `warn` | `(event: string, data?: unknown) => void` | Append a `warn` entry. |
 | `error` | `(event: string, data?: unknown, error?: Error) => void` | Append an `error` entry. When `error` is supplied, its `message`/`stack` are merged into `data` under an `error` key (existing keys preserved; non-plain-object `data` is coerced to `{}` first, dropping its original value). |
-| `trace` | `() => readonly LogEntry[]` | Return a **frozen snapshot** (fresh copy) of all entries recorded so far. |
+| `trace` | `() => readonly LogEntry[]` | Return a **frozen snapshot** of the entries the trace holds, oldest first: the newest 1000 to 2000. The same snapshot until the next entry or `reset()`. |
 | `expect` | `() => ExpectChain` | Return a fluent assertion chain bound to the **live** entries array. |
 | `addSink` | `(sink: LogSink) => void` | Register an additional `LogSink` at runtime (the file/JSON seam). |
 | `reset` | `() => void` | Clear all recorded entries while **keeping** registered sinks. |

@@ -16,6 +16,12 @@ import type {
   LogState
 } from "./types";
 
+/** Entries the trace keeps after a drop: the newest ones. */
+const TRACE_KEPT = 1000;
+
+/** Entries the trace holds at most: at this length the oldest are dropped down to {@link TRACE_KEPT}. */
+const TRACE_HELD = 2 * TRACE_KEPT;
+
 /** Core-plugin context surface available to the log API factory. */
 type LogContext = {
   readonly config: Readonly<LogConfig>;
@@ -36,7 +42,16 @@ type LogContext = {
  */
 function append(state: LogState, level: LogLevel, event: string, data?: unknown): void {
   const entry: LogEntry = { level, event, data, ts: Date.now() };
-  state.entries.push(entry);
+  const entries = state.entries;
+
+  if (entries.length >= TRACE_HELD) {
+    // Drop the oldest half in place: the array stays oldest first for a live expect(), and nothing is allocated.
+    entries.copyWithin(0, entries.length - TRACE_KEPT);
+    entries.length = TRACE_KEPT;
+  }
+
+  entries.push(entry);
+  state.snapshot = undefined;
   for (const sink of state.sinks) {
     sink.write(entry);
   }
@@ -147,7 +162,8 @@ export function createLogApi(ctx: LogContext): LogApi {
       append(state, "error", event, error === undefined ? data : mergeError(data, error));
     },
     /**
-     * Return a frozen snapshot (fresh copy) of the entries recorded so far.
+     * Return a frozen snapshot of the entries the trace holds, oldest first. One snapshot serves every call until
+     * the next entry or reset, so a reader polling a quiet log copies nothing.
      *
      * @returns A readonly, frozen copy of the recorded entries.
      * @example
@@ -156,7 +172,9 @@ export function createLogApi(ctx: LogContext): LogApi {
      * ```
      */
     trace(): readonly LogEntry[] {
-      return Object.freeze([...state.entries]);
+      state.snapshot ??= Object.freeze([...state.entries]);
+
+      return state.snapshot;
     },
     /**
      * Return a fluent assertion chain bound to the live entries array.
@@ -192,6 +210,7 @@ export function createLogApi(ctx: LogContext): LogApi {
      */
     reset(): void {
       state.entries.length = 0;
+      state.snapshot = undefined;
     },
     /**
      * Remove all registered output sinks; the in-memory trace (`entries`) is
