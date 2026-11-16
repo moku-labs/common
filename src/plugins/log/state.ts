@@ -4,7 +4,7 @@
 import type { LogState } from "./types";
 
 /**
- * Create fresh log state: an empty append-only trace and an empty sink list.
+ * Create fresh log state: an empty trace and an empty sink list.
  * No module-level singletons — guarantees per-`createApp` isolation (two
  * `createApp` calls never share `entries` or `sinks`).
  *

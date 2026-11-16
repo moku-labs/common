@@ -92,8 +92,13 @@ export type ExpectChain = {
  * Internal mutable state for the log plugin. Created fresh per createApp construction.
  */
 export type LogState = {
-  /** Append-only ordered trace of every logged entry (the in-memory trace sink's backing store). */
+  /**
+   * Ordered trace of the newest entries, oldest first (the in-memory trace sink's backing store). Holds at most
+   * 2000: at that length the oldest are dropped, down to the newest 1000.
+   */
   entries: LogEntry[];
+  /** The frozen copy `trace()` handed out, until the next entry or reset; undefined when stale. */
+  snapshot?: readonly LogEntry[] | undefined;
   /** Registered output sinks. Each entry is written to every sink in order. */
   sinks: LogSink[];
 };
@@ -131,7 +136,8 @@ export type LogApi = {
    */
   error(event: string, data?: unknown, error?: Error): void;
   /**
-   * Return a frozen snapshot of the entries recorded so far (a fresh copy).
+   * Return a frozen snapshot of the entries the trace holds, oldest first: the newest 1000 to 2000. One snapshot
+   * serves every call until the next entry or reset.
    *
    * @returns A readonly, frozen copy of the recorded entries.
    */
